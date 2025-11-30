@@ -10,6 +10,7 @@ from videos.models import Video
 from django.core.cache import cache
 from datetime import datetime, timedelta
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from notifications.models import MiscellaneousNotification, send_misc_notification
 
 @staff_member_required
 def choice_page(request):
@@ -61,6 +62,26 @@ class DeleteVideoReport(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
 
     def get_success_url(self):
         post = VideoReport.objects.all().get(pk=self.kwargs['pk']).post
+        VideoReport.objects.all().filter(post=post).delete()
+
+        return reverse('video-report-index')
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+
+# unused for now
+class WarnVideoReport(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    model = VideoReport
+    template_name = 'reports/warn_video_report.html'
+    def get_redirect_url(self):
+        return reverse('video-report-detail', kwargs={'pk': self.object.pk})
+
+    def get_success_url(self):
+        post = VideoReport.objects.all().get(pk=self.kwargs['pk']).post
+
+        warning_notif = MiscellaneousNotification.objects.create(video=post, message="A moderator has warned you for the contents of your video:")
+        send_misc_notification(warning_notif, [post.uploader])
+        
         VideoReport.objects.all().filter(post=post).delete()
 
         return reverse('video-report-index')
@@ -262,6 +283,25 @@ class DeleteBugReport(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def test_func(self):
         return self.request.user.is_superuser
     
+class FixBugReport(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    model = BugReport
+    template_name = 'reports/delete_report.html'
+    def get_redirect_url(self):
+        return reverse('report-bug-detail', kwargs={'pk': self.object.pk})
+    
+    def post(self, request, *args, **kwargs):
+        report = self.get_object()
+        congrats_notif = MiscellaneousNotification.objects.create(message=f'Your bug report "{report.brief_summary}" has been fixed!')
+        send_misc_notification(congrats_notif, [Profile.objects.all().get(username=report.reporter)])
+
+        return super().delete(request, *args, **kwargs)
+        
+    def get_success_url(self):        
+        return reverse('bug-report-index')
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+    
 class ReportBug(LoginRequiredMixin, CreateView):
     model = BugReport
     fields = ['brief_summary', 'explanation']
@@ -269,12 +309,10 @@ class ReportBug(LoginRequiredMixin, CreateView):
     is_valid = None
     
     def form_valid(self, form):
-        cooldown_valid = True
         last_report_time = cache.get(f"last_bug_report_{self.request.user.id}")
 
         if last_report_time is not None and datetime.now() < last_report_time + timedelta(minutes=2):
             form.add_error(None, "You can only send one bug report every 2 minutes.")
-            cooldown_valid = False
             return super().form_invalid(form)
 
         form.instance.reporter = self.request.user
@@ -338,6 +376,25 @@ class DeleteSuggestion(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return reverse('suggestion-detail', kwargs={'pk': self.object.pk})
     
     def post(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
+
+    def get_success_url(self):        
+        return reverse('suggestion-index')
+    
+    def test_func(self):
+        return self.request.user.is_superuser
+    
+class FixSuggestion(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    model = Suggestion
+    template_name = 'reports/delete_report.html'
+    def get_redirect_url(self):
+        return reverse('suggestion-detail', kwargs={'pk': self.object.pk})
+    
+    def post(self, request, *args, **kwargs):
+        report = self.get_object()
+        congrats_notif = MiscellaneousNotification.objects.create(message=f'Your suggestion "{report.brief_summary}" has been added!')
+        send_misc_notification(congrats_notif, [Profile.objects.all().get(username=report.reporter)])
+
         return super().delete(request, *args, **kwargs)
 
     def get_success_url(self):        

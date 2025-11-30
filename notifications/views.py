@@ -2,14 +2,20 @@ from profiles.models import Profile
 from django.views.generic.list import ListView
 from itertools import chain
 from operator import attrgetter
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
-class NotificationsIndex(ListView):
+class NotificationsIndex(LoginRequiredMixin, UserPassesTestMixin, ListView):
     template_name = "notifications/index.html"
     paginate_by = 25
 
     def get_queryset(self):
         sort_by = self.request.GET.get('sort-by')
-        queryset = list(chain(Profile.objects.all().get(username=self.request.user).notifications.exclude(read=False), Profile.objects.all().get(username=self.request.user).notifications.exclude(read=True)))
+
+        profile = Profile.objects.all().get(username=self.request.user)
+        
+        profile_notifications = profile.basenotification_set.all()
+
+        queryset = profile_notifications.filter(requires_action=True) | profile_notifications.filter(read=True) | profile_notifications.filter(read=False)
 
         if sort_by == 'date-desc':
             queryset = sorted(
@@ -29,9 +35,7 @@ class NotificationsIndex(ListView):
                 reverse=True
             )
         
-        for i in Profile.objects.all().get(username=self.request.user).notifications.exclude(read=True):
-            i.read = True
-            i.save()
+        profile_notifications.filter(read=False).update(read=True)
 
         return queryset
 
@@ -39,3 +43,6 @@ class NotificationsIndex(ListView):
         context = super().get_context_data(**kwargs)
         context['sort_by'] = self.request.GET.get('sort-by')
         return context
+    
+    def test_func(self):
+        return Profile.objects.all().filter(username=self.request.user).exists()

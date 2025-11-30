@@ -47,7 +47,7 @@
 				<i title="Admin" class='bx bxs-user-badge' ></i>
 			{% endif %}
 			{% if developer %}
-				<i title="developer" class='bx bxs-wrench' ></i>
+				<i title="Developer" class='bx bxs-wrench' ></i>
 			{% endif %}
 			{% if creator %}
 				<i title="Creator" class='bx bxs-palette' ></i>
@@ -58,19 +58,17 @@
 		</h4>
         <h5 class="text-center">{{ info|linebreaksbr }}</h5>
 		<div class="text-center">
-			{% if username != user and user.moderator %}
-			<a class="cool-element btn btn-outline-primary" href="{% url 'profile-update' poopie %}">Edit</a>
-			{% elif username == user or user.is_superuser %}
-			<h6><a class="cool-element btn btn-outline-primary" href="{% url 'profile-update' poopie %}">Edit</a>
-			<a class="cool-element btn btn-outline-danger" href="{% url 'profile-delete' poopie %}">Delete</a></h6>
+			{% if username == user or user.is_superuser %}
+			<h6><a class="cool-element btn btn-outline-primary" href="{% url 'profile-update' id %}">Edit</a>
+			<a class="cool-element btn btn-outline-danger" href="{% url 'profile-delete' id %}">Delete</a></h6>
 			{% endif %}
 			{% if username == user %}
-			<a class="cool-element btn btn-outline-success" href="{% url 'customise-profile' poopie %}">Customise page</a>
+			<a class="cool-element btn btn-outline-success" href="{% url 'customise-profile' id %}">Customise page</a>
 			{% endif %}
 			{% if username != request.user %}
-			<a class="video-icons icon-color cool-element" href="{% url 'profile-report' poopie %}"><i class='bx bxs-flag-alt' ></i></a>
+			<a class="video-icons icon-color cool-element" href="{% url 'profile-report' id %}"><i class='bx bxs-flag-alt' ></i></a>
 			{% endif %}
-			<p class="follow-count" id="{{ poopie }}">{{ follow_num }} followers</p>
+			<p class="follow-count" id="{{ id }}">{{ follow_num }} followers</p>
 			{% if request.user.is_authenticated %}
 			{% if username != request.user %}
 			{% following_eachother request.user username as fe %}
@@ -81,7 +79,7 @@
 			<b>(Follows you)</b>
 			{% endif %}
 			<div class="follow-button-container">
-				<button class="follow-button {% if is_following %}following cool-element btn cool-element btn-outline-danger {% else %}cool-element btn cool-element btn-outline-success {% endif %}" data-url-add="{% url 'add-follower' poopie %}" data-url-remove="{% url 'remove-follower' poopie %}">
+				<button class="follow-button {% if is_following %}following cool-element btn cool-element btn-outline-danger {% else %}cool-element btn cool-element btn-outline-success {% endif %}" data-url-add="{% url 'add-follower' id %}" data-url-remove="{% url 'remove-follower' id %}">
 					{% if is_following %}
 					<span>Following</span>
 					{% else %}
@@ -89,25 +87,44 @@
 					{% endif %}
 				</button>
 				{% if fe or request.user.is_superuser %}
-					<a class="cool-element btn cool-element btn-outline-success" href="{% url 'chat-detail' poopie %}">Message</a>
+					<a class="cool-element btn cool-element btn-outline-success" href="{% url 'chat-detail' id %}">Message</a>
 				{% endif %}
 			</div>
 			{% endif %}
 			{% endif %}
 		</div>
 		<br>
-			<h3 class="text-center">Profile Rating: <span id="rating">{{ profile.rating|floatformat:1 }}</span></h3>
-			{% if username != request.user %}
-			<form id="rating-form" class="text-center" method="POST">
-				{% csrf_token %}
-				<select id="rating-select" name="rating">
-					{% for i in '12345'|make_list %}
-						<option value="{{ i }}" {% if i == current_user_rating %}selected{% endif %}>{{ i }} Star{% if i != '1' %}s{% endif %}</option>
-					{% endfor %}
-				</select>
-				<button type="submit" class="cool-element btn cool-element btn-success">Submit Rating</button>
-			</form>
-			{% endif %}
+		<h3 class="text-center">Profile Rating: <span id="rating">{{ profile.rating|floatformat:1 }}</span></h3>
+		{% if username != request.user %}
+		<form id="rating-form" class="text-center" method="POST">
+			{% csrf_token %}
+			<select id="rating-select" name="rating">
+				{% for i in '12345'|make_list %}
+					<option value="{{ i }}" {% if i == current_user_rating %}selected{% endif %}>{{ i }} Star{% if i != '1' %}s{% endif %}</option>
+				{% endfor %}
+			</select>
+			<button type="submit" class="cool-element btn cool-element btn-success">Submit Rating</button>
+		</form>
+		{% endif %}
+		{% now 'n' as month %}
+		{% if not request.user.is_anonymous and request.user != profile.username and month == '12' %}
+		<br>
+		<div class="text-center">
+			{% profile_nomination user as nomination %}
+			<button class="nominate-button btn {% if nomination == None %}btn-success{% elif nomination != profile %}btn-warning{% else %}btn-danger{% endif %}" style="text-shadow: 0 0 5px #FFFF00, 0 0 5px #FFFF00, 0 0 5px #FFFF00; color: white" data-url="{% url 'profile-nominate' id %}">
+				<span>
+					{% if nomination == None %}
+					Nominate for profile of the year
+					{% elif nomination != profile %}
+					Replace current nomination
+					{% else %}
+					Remove nomination
+					{% endif %}
+				</span>
+			</button>
+		</div>
+		{% endif %}
+
 		<div class="row justify-content-center mt-5">
 			{% include 'videos/video_cards.html' %}
 		</div>

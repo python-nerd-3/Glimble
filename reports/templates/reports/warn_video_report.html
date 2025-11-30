@@ -1,0 +1,22 @@
+{% extends 'videos/base.html' %}
+
+{% block content %}
+
+	<div class="container">
+		<div class="row justify-content-center mt-5">
+			<div class="col-md-6 col-sm-12 col-xs-12 text-center">
+				<form method="POST">
+					{% csrf_token %}
+					<legend class="border-bottom mb-4">Warn the uploader about the report</legend>
+					<h5>Are You Sure?</h5>
+					<p>This will delete all current reports for this video. This action cannot be undone.</p>
+					<br>
+					<p>Please write a message for the uploader <input></p>
+					<p class="text-muted">(write something useful, like what actions need to be taken)</p>
+					<button class="btn btn-outline-warning btn-block" type="submit">Warn</button>
+				</form>
+			</div>
+		</div>
+	</div>
+	
+{% endblock content %}

@@ -1,6 +1,5 @@
 from django.db import models
 from django.db.models import Avg
-from django.contrib import admin
 from django.utils import timezone
 from django.core.validators import FileExtensionValidator
 from django.contrib.auth.models import User
@@ -13,6 +12,7 @@ def validate_characters(value):
         raise ValidationError("Too many newlines.")
 
 def validate_filesize(value):
+    print(value.size)
     if not 1024 < value.size < 5000000:
         raise ValidationError("File is too big or too small.")
     
@@ -44,6 +44,9 @@ class Profile(models.Model): # hi
     helper = models.BooleanField(default=False)
     customisation = models.ForeignKey("ProfileCustomisation", on_delete=models.SET_NULL, null=True, blank=True)
     shadowbanned = models.BooleanField(default=False)
+    nominated_video = models.ForeignKey("videos.Video", null=True, on_delete=models.SET_NULL)
+    nominated_profile = models.ForeignKey("Profile", null=True, on_delete=models.SET_NULL)
+    noms = models.ManyToManyField("Profile", blank=True, related_name="profile_nominations") # don't worry about the name here, i couldn't name it "nominations" because it conflicted with the nominations field on Video
     videos = models.ManyToManyField("videos.Video", blank=True, related_name='videos')
 
     def recalculate_rating(self):
@@ -70,17 +73,14 @@ class ProfileCustomisation(models.Model):
         cleaned_data = super().clean()
 
         background_text_contrast = self.is_contrast_good(self.background_color, self.text_color)
-        background_shadow_contrast = self.is_contrast_good(self.background_color, self.text_shadow_color)
         text_shadow_contrast = self.is_contrast_good(self.text_color, self.text_shadow_color)
         video_card_text_shadow_contrast = self.is_contrast_good(self.video_card_text_color, self.video_card_text_shadow_color)
 
         errors = []
-        if not (background_text_contrast or background_shadow_contrast):
+        if not (background_text_contrast or text_shadow_contrast):
             errors.append("Text color must contrast with the background.")
-        if not text_shadow_contrast:
-            errors.append("Text shadow must contrast with the text color.")
         if not video_card_text_shadow_contrast:
-            errors.append("Video card text shadow must contrast with the text color.")
+            errors.append("Video card text shadow must contrast with the video card text color.")
 
         if errors:
             raise ValidationError(errors)
@@ -111,7 +111,7 @@ class ProfileCustomisation(models.Model):
         L1, L2 = max(lum1, lum2), min(lum1, lum2)
         contrast_ratio = (L1 + 0.05) / (L2 + 0.05)
 
-        return contrast_ratio >= 2.5
+        return contrast_ratio >= 2
 
 class Chat(models.Model):
     members = models.ManyToManyField("profiles.Profile", related_name="members")

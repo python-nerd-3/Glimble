@@ -56,6 +56,7 @@ class Video(models.Model, object):
     pinned_comment = models.ForeignKey("Comment", null=True, blank=True, on_delete=models.SET_NULL)
     push_notification = models.BooleanField(default=True)
     recommendation_milestones = models.PositiveIntegerField(default=0)
+    nominations = models.ManyToManyField("profiles.Profile", blank=True, related_name="nominations")
     category = models.CharField(max_length=13,
                   choices=CATAGORIES,
                   default=ENTERTAINMENT)
@@ -63,7 +64,6 @@ class Video(models.Model, object):
 @receiver(m2m_changed, sender=Video.recommendations.through)
 def on_recommendation_change(sender, instance: Video, action, **kwargs):
     if action in ['post_add', 'post_remove', 'post_clear']:
-        days = (timezone.now() - instance.date_posted).days
         like_count = instance.likes.count()
         dislike_count = instance.dislikes.count()
         total_votes = like_count + dislike_count
@@ -83,7 +83,7 @@ def on_recommendation_change(sender, instance: Video, action, **kwargs):
 def video_created(sender, instance, created, **kwargs):
     if created:
         instance.uploader.videos.add(instance)
-        if instance.push_notification:
+        if instance.push_notification and not instance.uploader.shadowbanned:
             VideoNotification.objects.create(video=instance, message=instance.notification_message)
 
 @receiver(post_delete, sender=Video)
@@ -101,13 +101,7 @@ class Comment(models.Model):
     replying_to = models.ForeignKey("Comment", on_delete=models.CASCADE, null=True, blank=True, related_name="reply_to")
     replies = models.ManyToManyField("Comment", blank=True, related_name="comment_replies")
 
-    class Meta:
-        ordering = ['-date_posted']
-
 @receiver(post_save, sender=Comment)
 def comment_notify(sender, instance, created, **kwargs):
-    if created:
-        if instance.commenter != instance.post.uploader and instance.replying_to == None:
-            CommentNotification.objects.create(comment=instance, message=f'just commented on your video: "{instance.comment}"')
-        elif instance.replying_to != None:
-            CommentNotification.objects.create(comment=instance, message=f'just replied to your comment: "{instance.comment}"')
+    if created and not instance.commenter.shadowbanned:
+        CommentNotification.objects.create(comment=instance, message=f'just commented: "{instance.comment}"')

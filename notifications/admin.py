@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import VideoNotification, BaseNotification, UpdateNotification, CommentNotification, MilestoneNotification
+from .models import VideoNotification, BaseNotification, UpdateNotification, CommentNotification, MilestoneNotification, MiscellaneousNotification
 
 @admin.register(VideoNotification)
 class VideoNotificationAdmin(admin.ModelAdmin):
@@ -18,6 +18,11 @@ class CommentNotificationAdmin(admin.ModelAdmin):
 
 @admin.register(MilestoneNotification)
 class MilestoneNotificationAdmin(admin.ModelAdmin):
+    list_display = ['id']
+    search_fields = ['id']
+
+@admin.register(MiscellaneousNotification)
+class MiscellaneousNotificationAdmin(admin.ModelAdmin):
     list_display = ['id']
     search_fields = ['id']
 

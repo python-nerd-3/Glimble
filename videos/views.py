@@ -14,15 +14,15 @@ from django.http import JsonResponse, HttpResponse
 from django.views import View
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from notifications.models import MilestoneNotification, MiscellaneousNotification, send_misc_notification
+from django.http import JsonResponse
+from Glomble.pc_prod import *
 from datetime import datetime, timedelta
 from PIL import Image
 import tempfile
 import os
 import random
-from Glomble.pc_prod import *
 import subprocess
-from notifications.models import MilestoneNotification
-from django.http import JsonResponse
 
 def get_recommended_videos(request, category):
     videos = random.sample(list(Video.objects.all().filter(category=category).exclude(unlisted=True).exclude(uploader__shadowbanned=True)), 3)
@@ -108,6 +108,8 @@ class Index(ListView):
             queryset = queryset.annotate(num_views=Count('views')).order_by('-num_views')
         elif sort_by == "recommended":
             queryset = queryset.annotate(num_likes=Count('likes')).order_by("-score", '-num_likes')
+        elif sort_by == 'NUMNOM' and self.request.user.id == 1:
+            queryset = queryset.annotate(num_nom=Count('nominations')).order_by('-num_nom').exclude(num_nom=0)
         else:
             queryset = queryset.annotate(num_likes=Count('likes')).order_by("-score", '-num_likes')
 
@@ -171,11 +173,12 @@ class CreateVideo(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             uploaded_thumbnail = False
 
         try:
-            result = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
-                             "format=duration", "-of",
-                             "default=noprint_wrappers=1:nokey=1", temp_video_file.name],
+            result = subprocess.run(f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {temp_video_file.name}",
+            shell=True,
+            check=True,
             stdout = subprocess.PIPE,
-            stderr = subprocess.STDOUT)
+            stderr = subprocess.STDOUT,
+            )
             duration = float(result.stdout)
 
             if duration > 7200 or duration < 1:
@@ -231,7 +234,9 @@ class CreateVideo(LoginRequiredMixin, UserPassesTestMixin, CreateView):
                 result = subprocess.run(
                     f"ffprobe -v error -select_streams v -show_entries stream=width,height -of csv=p=0:s=x {video_filename}",
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT
+                    stderr=subprocess.STDOUT,
+                    shell=True,
+                    check=True,
                 )
                 ttsize = tuple(map(int, result.stdout.decode("utf-8").split("x")))
                 ttwidth, ttheight = ttsize
@@ -260,7 +265,7 @@ class CreateVideo(LoginRequiredMixin, UserPassesTestMixin, CreateView):
             return super().form_valid(form)
 
         except Exception as e:
-            form.add_error(None, f"An error occurred during processing. {e}")
+            form.add_error(None, f"An error occurred during processing.")
             return self.form_invalid(form)
 
         finally:
@@ -294,6 +299,7 @@ class DetailVideo(DetailView):
         desclen = None
         pre = None
         readmore = None
+        can_nominate = pen.date_posted.year==timezone.now().year
         if pen.description is not None:
             has_desc = True
             desclen = len(pen.description)
@@ -331,7 +337,8 @@ class DetailVideo(DetailView):
             'desclen': desclen,
             'has': has_desc,
             'is_following': is_following,
-            'replies': replies
+            'replies': replies,
+            'can_nominate': can_nominate,
         }
 
         if pen.pinned_comment != None:
@@ -388,6 +395,7 @@ class DetailVideo(DetailView):
             'form': CommentForm(),
             'replyform': ReplyForm(),
             'comments': comments,
+            'pinned_comment': pinned_comment,
             'pre': pre,
             'readmore': readmore,
             'desclen': desclen,
@@ -403,13 +411,18 @@ class DetailVideo(DetailView):
 
         if last_comment_time and datetime.now() < last_comment_time + timedelta(seconds=10):
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                rendered_comments = render(request, 'videos/comment.html', context)
                 return JsonResponse({
                     "success": False,
+                    "comments": rendered_comments.content.decode('utf-8'),
                     "count": pen.comments.count(),
                 })
             return render(request, 'videos/detail_video.html', context)
+        
+        if not form.is_valid() or not replyform.is_valid():
+            return render(request, 'videos/detail_video.html', context)
 
-        elif form_type == "comment" and form.is_valid():
+        if form_type == "comment":
             new_comment = form.save(commit=False)
             new_comment.commenter = Profile.objects.get(username=request.user)
             new_comment.post = pen
@@ -420,34 +433,47 @@ class DetailVideo(DetailView):
             cache.set(f"last_comment_{self.request.user.id}", datetime.now(), timeout=None)
 
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                all_comments = pen.comments.all().exclude(commenter__shadowbanned=True).filter(replying_to=None)
+                queryset = all_comments.filter(pk=new_comment.pk) | all_comments.exclude(pk=new_comment.pk)
+
+                if pinned_comment != None:
+                    queryset = all_comments.filter(pk=pinned_comment.pk) | queryset
+
+                context.update({'comments': queryset})
+                rendered_comments = render(request, 'videos/comment.html', context)
+
                 return JsonResponse({
                     "success": True,
+                    "comments": rendered_comments.content.decode('utf-8'),
                     "count": pen.comments.count(),
                 })
 
             return redirect(f'{reverse("video-detail", kwargs={"id": e})}')
 
-        elif form_type == "reply" and replyform.is_valid():
+        elif form_type == "reply":
             new_reply = replyform.save(commit=False)
             new_reply.replying_to = Comment.objects.get(id=int(request.POST.get("comment_id")))
             new_reply.commenter = Profile.objects.get(username=request.user)
             new_reply.post = pen
             new_reply.save()
 
-            Comment.objects.get(id=int(request.POST.get("comment_id"))).replies.add(new_reply)
             pen.comments.add(new_reply)
+            new_reply.replying_to.replies.add(new_reply)
 
             cache.set(f"last_comment_{self.request.user.id}", datetime.now(), timeout=None)
 
             if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                all_comments = pen.comments.all().exclude(commenter__shadowbanned=True).exclude(replying_to=None)
+                context.update({'replies': all_comments})
+                rendered_comments = render(request, 'videos/comment.html', context)
+
                 return JsonResponse({
                     "success": True,
+                    "comments": rendered_comments.content.decode('utf-8'),
                     "count": pen.comments.count(),
                 })
             
             return redirect(f'{reverse("video-detail", kwargs={"id": e})}')
-
-        return render(request, 'videos/detail_video.html', context)
 
 class UpdateVideo(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Video
@@ -582,6 +608,43 @@ class Recommend(LoginRequiredMixin, UserPassesTestMixin, View):
         video = Video.objects.get(id=id)
         if Profile.objects.all().filter(username=self.request.user).exists():
             return Profile.objects.all().get(username=self.request.user) != video.uploader
+        return False
+    
+# This is for glomble rewind and should only be available during december (i really hope i finish this update before that)
+# Hi i'm writing this on Nov 28, the odds of finishing every feature i have planned is not too looking good
+# Note from Nov 30: uh oh
+class Nominate(LoginRequiredMixin, UserPassesTestMixin, View):
+    model = Video
+    def get_redirect_url(self):
+        return reverse('video-detail', kwargs={'id': self.object.id})
+
+    def post(self, request, *args, **kwargs):
+        hi = self.kwargs['id']
+
+        video = Video.objects.get(id=hi)
+        profile = Profile.objects.all().get(username=self.request.user)
+
+        has_nominated = True
+
+        if profile.nominated_video == video:
+            profile.nominated_video = None
+            video.nominations.remove(profile)
+            has_nominated = False
+        else:
+            if profile.nominated_video:
+                profile.nominated_video.nominations.remove(profile)
+            video.nominations.add(profile)
+            profile.nominated_video = video
+
+        profile.save()
+
+        return JsonResponse({'has_nominated': has_nominated, 'is_video': True})
+    
+    def test_func(self):
+        id = self.kwargs['id']
+        video = Video.objects.get(id=id)
+        if Profile.objects.all().filter(username=self.request.user).exists():
+            return Profile.objects.all().get(username=self.request.user) != video.uploader and video.date_posted.year == timezone.now().year and timezone.now().month == 12
         return False
 
 class DownloadVideo(View):

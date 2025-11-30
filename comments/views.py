@@ -4,7 +4,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic.edit import DeleteView, UpdateView
 from django.http import JsonResponse
 from videos.models import Comment
-from notifications.models import BaseNotification
+from notifications.models import BaseNotification, MiscellaneousNotification, send_misc_notification
+from profiles.models import Profile
 
 class PinComment(LoginRequiredMixin, UserPassesTestMixin, View):
 	def get_redirect_url(self):
@@ -23,6 +24,10 @@ class PinComment(LoginRequiredMixin, UserPassesTestMixin, View):
 
 		video.pinned_comment = comment
 		video.save()
+
+		if comment.commenter.username != request.user:
+			pin_notif = MiscellaneousNotification.objects.create(comment=comment, message=f'{video.uploader.username} just pinned your comment: "{comment.comment}"')
+			send_misc_notification(pin_notif, [comment.commenter])
 
 		return redirect(reverse('video-detail', kwargs={'id': video.id})+f'#comment={comment.pk}')
 	
@@ -59,67 +64,54 @@ class UpdateComment(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 		comment = self.get_object()
 		return self.request.user == comment.commenter.username or self.request.user.is_superuser
 
-class AddLike(LoginRequiredMixin, View):
+class AddLike(LoginRequiredMixin, UserPassesTestMixin, View):
 	def get_redirect_url(self):
 		return reverse('video-detail', kwargs={'pk': self.object.post.id})
+	
+	def test_func(self):
+		return Profile.objects.all().filter(username=self.request).exists()
 
 	def post(self, request, *args, **kwargs):
 		hi = self.kwargs['pk']
 		comment = Comment.objects.get(pk=hi)
 		
-		is_dislike = False
+		is_liked = False
 
 		if request.user in comment.dislikes.all():
-			is_dislike = True
-
-		if is_dislike:
 			comment.dislikes.remove(request.user)
-
-		is_like = False
-
-		if request.user in comment.likes.all():
-			is_like = True
-
-		if not is_like:
-			comment.likes.add(request.user)
-
-		if is_like:
+		elif request.user in comment.likes.all():
 			comment.likes.remove(request.user)
+		else:
+			comment.likes.add(request.user)
+			is_liked = True
 
 		likes_count = comment.likes.count()
-
 		dislikes_count = comment.dislikes.count()
 
-		return JsonResponse({'likes_count': likes_count, 'liked': is_like, 'dislikes_count': dislikes_count, 'disliked': is_dislike})
+		return JsonResponse({'likes_count': likes_count, 'liked': is_liked, 'dislikes_count': dislikes_count, 'disliked': False})
 
-class Dislike(LoginRequiredMixin, View):
+class Dislike(LoginRequiredMixin, UserPassesTestMixin, View):
 	def get_redirect_url(self):
 		return reverse('video-detail', kwargs={'pk': self.object.pk})
+	
+	def test_func(self):
+		return Profile.objects.all().filter(username=self.request).exists()
+	
 	def post(self, request, *args, **kwargs):
 		hi = self.kwargs['pk']
 		comment = Comment.objects.get(pk=hi)
 
-		is_like = False
+		is_disliked = False
 
 		if request.user in comment.likes.all():
-			is_like = True
-
-		if is_like:
 			comment.likes.remove(request.user)
-
-		is_dislike = False
-
-		if request.user in comment.dislikes.all():
-			is_dislike = True
-
-		if not is_dislike:
-			comment.dislikes.add(request.user)
-
-		if is_dislike:
+		elif request.user in comment.dislikes.all():
 			comment.dislikes.remove(request.user)
+		else:
+			comment.dislikes.add(request.user)
+			is_disliked = True
 
 		likes_count = comment.likes.count()
-
 		dislikes_count = comment.dislikes.count()
 
-		return JsonResponse({'likes_count': likes_count, 'liked': is_like, 'dislikes_count': dislikes_count, 'disliked': is_dislike})
+		return JsonResponse({'likes_count': likes_count, 'liked': False, 'dislikes_count': dislikes_count, 'disliked': is_disliked})

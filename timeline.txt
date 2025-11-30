@@ -1,0 +1,65 @@
+~symbol_explanation:
+    .importance:
+        "!" - vital
+        "*" - important
+        "&" - unimportant
+
+    .progress:
+        "-" - not yet started
+        "|" - in progress
+        "=" - finished
+
+    .difficulty:
+        "+" - difficult
+        "$" - standard
+        "#" - easy
+
+    .misc:
+        "~" - category
+        "." - subcategory
+        "/" - commentary
+
+    .order:
+        importance - progress - difficulty
+
+~notifications:
+    *|$ priority_level and requires_action attributes
+
+~reports:
+    !-# send email and on-site warnings to reported accounts
+    !-# notify reporter and reportee if action is taken
+    &=# send notification to user if their bug report gets fixed or suggestion gets added
+
+~profiles:
+    *|$ roles between normal account and superuser
+
+~videos:
+    &-$ co-creators
+    &-# more categories
+    &-# markup text for comments and descriptions
+
+~general:
+    .code:
+        *-+ reformat code to be more readable
+        *-$ make custom badges
+        *-$ custom glomble emojis
+        *-# make badge template tag
+
+    .external:
+        *|$ make the README more helpful
+        *-$ make branch to make it easier for people to locally run the site
+
+~reminders:
+    ^ make debug false before pushing
+
+----------THE FINISHED STUFF PILE----------
+/ this just exists for motivation reasons lol
+
+hovering over upload timestamps shows precise time (i.e. hovering over "5 hours ago" shows precise date and time)
+added markup text (i.e. "*example* _text_" makes "example" bold and "text" italic)
+if you post a comment it now shows up at the top of the comment list 
+video length on video cards fades to a lower opacity when hovering so you can see thumbnails better
+added github repo to related links page
+comment sharing
+added video and profile nominations
+other random bullshit man idk

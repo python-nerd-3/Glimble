@@ -20,7 +20,7 @@
                 <div class="card-body">
                     <h3 class="text-muted text-center">Summary: {{ object.brief_summary }}</h3>
                     <p class="text-muted text-center">Reported by: {{ object.reporter }}</p>
-                    <p class="text-muted text-center">{{ object.date_sent|naturaltime }}</p>
+                    <p class="text-muted text-center" title="{{ object.date_sent }} (UTC)">{{ object.date_sent|naturaltime }}</p>
                 </div>
             </a>
         </div>

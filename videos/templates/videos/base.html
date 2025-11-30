@@ -1,35 +1,36 @@
 {% load static %}
 <!doctype html>
 <html lang="en">
-  <head>
+
+<head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
     <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="{% static 'videos/main.css' %}"/>
-    <link rel="stylesheet" href="{% static 'videos/styles.css' %}"/>
-    <link rel="shortcut icon" href="{% static 'videos/favicon.ico' %}" >
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
-    <link href="https://unpkg.com/@videojs/themes@1/dist/sea/index.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'videos/main.css' %}" />
+    <link rel="stylesheet" href="{% static 'videos/styles.css' %}" />
+    <link rel="shortcut icon" href="{% static 'videos/favicon.ico' %}">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+        integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 
-    <link href="https://vjs.zencdn.net/7.8.3/video-js.css" rel="stylesheet" />
-
     <link rel="stylesheet" type="text/css" href="{% static 'users/style.css' %}">
-    <style>* {font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;}</style>
-
-    <!-- If you'd like to support IE8 (for Video.js versions prior to v7) -->
-  	<script src="https://vjs.zencdn.net/ie8/1.1.2/videojs-ie8.min.js"></script>
+    <style>
+        * {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+    </style>
 
     <title>Glomble</title>
-  </head>
-  <body style="overflow-x: hidden;">
+</head>
+
+<body style="overflow-x: hidden;">
     {% include 'videos/navigation.html' %}
     <div id="loadingModal" style="display: none;">
         <button class="btn btn-primary" type="button" disabled>
-          <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
-          Processing your video, please do not leave this page.
+            <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true"></span>
+            Processing your video, please do not leave this page.
         </button>
     </div>
     <div style="min-height: 100vh;">
@@ -37,268 +38,283 @@
         {% endblock content %}
     </div>
 
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"
+        integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI"
+        crossorigin="anonymous"></script>
     <script>
-
         function openLoader() {
-            document.getElementById("loadingModal").style.display = "block";
+            document.getElementById("loadingModal").style.display = "block"
         }
-        
-      function showmore() {
-        var dots = document.getElementById("dots");
-        var moreText = document.getElementById("more");
-        var btnText = document.getElementById("myBtn");
 
-        if (dots.style.display === "none") {
-            dots.style.display = "inline";
-            btnText.innerHTML = "Read more".bold().italics();
-            moreText.style.display = "none";
-        } else {
-            dots.style.display = "none";
-            btnText.innerHTML = "Read less".bold().italics();
-            moreText.style.display = "inline";
+        function copyUrl(url) {
+            navigator.clipboard.writeText(url)
+
+            alert("Copied the link: " + url)
         }
+
+        function formatText(className) {
+            const timestampRegex = /\b(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)\b/g
+            const boldRegex = /\*([^(\*)]+)\*/g
+            const italicsRegex = /\_([^(\_)]+)\_/g
+
+            $(`.${className}`).html(function (_, oldHtml) {
+                // made by yours falsely ArnthorrrArnthorrr!
+                // ^ The code he wrote has since been removed but I wanted to keep the comment here cause I like it ok bye
+
+                oldHtml = oldHtml.replace(boldRegex, function (match) {
+                    return String(Array.from(match.matchAll(boldRegex), m => m[1])).bold()
+                })
+
+                oldHtml = oldHtml.replace(italicsRegex, function (match) {
+                    return String(Array.from(match.matchAll(italicsRegex), m => m[1])).italics()
+                })
+                
+                oldHtml = oldHtml.replace(timestampRegex, function (match, hour, min, sec) {
+                    const seconds = (parseInt(hour || 0) * 3600) + (parseInt(min) * 60) + parseInt(sec);
+                    return `<a href="#" class="timestamp" data-seconds="${seconds}">${match}</a>`;
+                })
+
+
+                return oldHtml
+            })
         }
-            $(document).ready(function() {
-                $(".recommend-button").click(function(e) {
-                    e.preventDefault();
-                    
-                    var recommendbutton = $(this);
-                    var url = recommendbutton.data("url");
-                    
-                    $.ajax({
-                        type: "POST",
-                        url: url,
-                        data: {
-                            csrfmiddlewaretoken: "{{ csrf_token }}",
-                        },
-                        success: function(data) {
-                            document.getElementById("score").innerHTML = data.score;
-                            if (data.has_recommended) {
-                                recommendbutton.find("span").text("Unrecommend");
-                                recommendbutton.toggleClass("btn-success btn-danger");
-                            }
-                            else {
-                                recommendbutton.find("span").text("Recommend");
-                                recommendbutton.toggleClass("btn-danger btn-success");
-                            }
-                        },
-                        error: function() {
-                        },
-                    });
-                });
-            });
-                
 
-    $(document).ready(function() {
-    // Attach a click event listener to the like button
-    $(".like-button").click(function(e) {
-        e.preventDefault();
-        
-        var likeButton = $(this);
-        var dislikeButton = likeButton.siblings(".dislike-button");
-        var url = likeButton.data("url");
-        var liked = likeButton.data("liked");
-        
-        // Toggle the like button icon and update the UI immediately
-        likeButton.find("i").toggleClass("bx bx-like bx bxs-like");
-        likeButton.data("liked", !liked);
-        
-        // Toggle the dislike button icon and reset it to "off"
-        dislikeButton.find("i").removeClass("bx bxs-dislike").addClass("bx bx-dislike");
-        dislikeButton.data("disliked", false);
-        
-        // Send the AJAX request in the background
-        $.ajax({
-            type: "POST",
-            url: url,
-            data: {
-                csrfmiddlewaretoken: "{{ csrf_token }}",
-            },
-            success: function(data) {
-                // Update the like count
-                dislikeButton.find("span").text(data.dislikes_count);
-                likeButton.find("span").text(data.likes_count);
-            },
-            error: function() {
-                // If the request fails, revert the UI back to its previous state
-                likeButton.find("i").toggleClass("bx bxs-like bx bx-like");
-                likeButton.data("liked", !liked);
-                
-                // Reset the dislike button to its previous state
-                dislikeButton.find("i").removeClass("bx bx-dislike").addClass("bx bxs-dislike");
-                dislikeButton.data("disliked", !disliked);
-            },
-        });
-    });
+        function showmore() {
+            var dots = document.getElementById("dots")
+            var moreText = document.getElementById("more")
+            var btnText = document.getElementById("myBtn")
 
-    // Attach a click event listener to the dislike button
-    $(".dislike-button").click(function(e) {
-        e.preventDefault();
-        
-        var dislikeButton = $(this);
-        var likeButton = dislikeButton.siblings(".like-button");
-        var url = dislikeButton.data("url");
-        var disliked = dislikeButton.data("disliked");
-        
-        // Toggle the dislike button icon and update the UI immediately
-        dislikeButton.find("i").toggleClass("bx bx-dislike bx bxs-dislike");
-        dislikeButton.data("disliked", !disliked);
-        
-        // Toggle the like button icon and reset it to "off"
-        likeButton.find("i").removeClass("bx bxs-like").addClass("bx bx-like");
-        likeButton.data("liked", false);
-        
-        // Send the AJAX request in the background
-        $.ajax({
-            type: "POST",
-            url: url,
-            data: {
-                csrfmiddlewaretoken: "{{ csrf_token }}",
-            },
-            success: function(data) {
-                // Update the dislike count
-                dislikeButton.find("span").text(data.dislikes_count);
-                likeButton.find("span").text(data.likes_count);
-            },
-            error: function() {
-                // If the request fails, revert the UI back to its previous state
-                dislikeButton.find("i").toggleClass("bx bxs-dislike bx bx-dislike");
-                dislikeButton.data("disliked", !disliked);
-                
-                // Reset the like button to its previous state
-                likeButton.find("i").removeClass("bx bx-like").addClass("bx bxs-like");
-                likeButton.data("liked", !liked);
-            },
-        });
-    });
-});
-    </script>
-    <script>
-      $(document).ready(function() {
-      // Attach a click event listener to the like button
-      $(".comment-like-button").click(function(e) {
-          e.preventDefault();
-          
-          var likeButton = $(this);
-          var dislikeButton = likeButton.siblings(".comment-dislike-button");
-          var url = likeButton.data("url");
-          var liked = likeButton.data("liked");
-          
-          // Toggle the like button icon and update the UI immediately
-          likeButton.find("i").toggleClass("bx bx-like bx bxs-like");
-          likeButton.data("liked", !liked);
-          
-          // Toggle the dislike button icon and reset it to "off"
-          dislikeButton.find("i").removeClass("bx bxs-dislike").addClass("bx bx-dislike");
-          dislikeButton.data("disliked", false);
-          
-          // Send the AJAX request in the background
-          $.ajax({
-              type: "POST",
-              url: url,
-              data: {
-                  csrfmiddlewaretoken: "{{ csrf_token }}",
-              },
-              success: function(data) {
-                  // Update the like count
-                  dislikeButton.find("span").text(data.dislikes_count);
-                  likeButton.find("span").text(data.likes_count);
-              },
-              error: function() {
-                  // If the request fails, revert the UI back to its previous state
-                  likeButton.find("i").toggleClass("bx bxs-like bx bx-like");
-                  likeButton.data("liked", !liked);
-                  
-                  // Reset the dislike button to its previous state
-                  dislikeButton.find("i").removeClass("bx bx-dislike").addClass("bx bx-dislike");
-                  dislikeButton.data("disliked", !disliked);
-              },
-          });
-      });
-  
-      // Attach a click event listener to the dislike button
-      $(".comment-dislike-button").click(function(e) {
-          e.preventDefault();
-          
-          var dislikeButton = $(this);
-          var likeButton = dislikeButton.siblings(".comment-like-button");
-          var url = dislikeButton.data("url");
-          var disliked = dislikeButton.data("disliked");
-          
-          // Toggle the dislike button icon and update the UI immediately
-          dislikeButton.find("i").toggleClass("bx bx-dislike bx bxs-dislike");
-          dislikeButton.data("disliked", !disliked);
-          
-          // Toggle the like button icon and reset it to "off"
-          likeButton.find("i").removeClass("bx bxs-like").addClass("bx bx-like");
-          likeButton.data("liked", false);
-          
-          // Send the AJAX request in the background
-          $.ajax({
-              type: "POST",
-              url: url,
-              data: {
-                  csrfmiddlewaretoken: "{{ csrf_token }}",
-              },
-              success: function(data) {
-                  // Update the dislike count
-                  dislikeButton.find("span").text(data.dislikes_count);
-                  likeButton.find("span").text(data.likes_count);
-              },
-              error: function() {
-                  // If the request fails, revert the UI back to its previous state
-                  dislikeButton.find("i").toggleClass("bx bxs-dislike bx bx-dislike");
-                  dislikeButton.data("disliked", !disliked);
-                  
-                  // Reset the like button to its previous state
-                  likeButton.find("i").removeClass("bx bx-like").addClass("bx bx-like");
-                  likeButton.data("liked", !liked);
-              },
-          });
-      });
-  });
-  
-    </script>
-    <script>
-    $(document).ready(function() {
-    // Attach a click event listener to the follow button
-    $(".follow-button").click(function(e) {
-        e.preventDefault();
-        
-        var followButton = $(this);
-        var urlAdd = followButton.data("url-add");
-        var urlRemove = followButton.data("url-remove");
-        
-        // Toggle the button text and class immediately
-        followButton.find("span").text(followButton.hasClass("following") ? "Follow" : "Following");
-        followButton.toggleClass("following").toggleClass("btn btn-outline-danger btn btn-outline-success");
-        
-        // Send the AJAX request in the background
-        $.ajax({
-            type: "POST",
-            url: followButton.hasClass("following") ? urlAdd : urlRemove,
-            data: {
-                csrfmiddlewaretoken: "{{ csrf_token }}",
-            },
-            success: function(data) {
-                // Update the follow count if needed (you can implement this logic)
-                // Example: $(".follow-count").text(data.follow_count);
-                $(".follow-count").text(data.follow_count + " followers");
-            },
-            error: function() {
-                // If the request fails, revert the button state
-                followButton.find("span").text(followButton.hasClass("following") ? "Following" : "Follow");
-                followButton.toggleClass("following").toggleClass("btn btn-outline-danger btn btn-outline-success");
-            },
-        });
-    });
-});
+            if (dots.style.display === "none") {
+                dots.style.display = "inline"
+                btnText.innerHTML = "Read more".bold().italics()
+                moreText.style.display = "none"
+            } else {
+                dots.style.display = "none"
+                btnText.innerHTML = "Read less".bold().italics()
+                moreText.style.display = "inline"
+            }
+        }
+        $(document).ready(function () {
+            $(".recommend-button").click(function (e) {
+                e.preventDefault()
 
+                var recommendbutton = $(this)
+                var url = recommendbutton.data("url")
+
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: {
+                        csrfmiddlewaretoken: "{{ csrf_token }}",
+                    },
+                    success: function (data) {
+                        document.getElementById("score").innerHTML = data.score
+                        if (data.has_recommended) {
+                            recommendbutton.find("span").text("Unrecommend")
+                            recommendbutton.toggleClass("btn-outline-success btn-outline-danger")
+                        }
+                        else {
+                            recommendbutton.find("span").text("Recommend")
+                            recommendbutton.toggleClass("btn-outline-danger btn-outline-success")
+                        }
+                    },
+                    error: function () {
+                    },
+                })
+            })
+
+            $(".nominate-button").click(function (e) {
+                e.preventDefault()
+
+                var nominatebutton = $(this)
+                var url = nominatebutton.data("url")
+
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: {
+                        csrfmiddlewaretoken: "{{ csrf_token }}",
+                    },
+                    success: function (data) {
+                        if (data.has_nominated) {
+                            nominatebutton.find("span").text("Remove nomination")
+                            nominatebutton.toggleClass("btn-success btn-danger")
+                        }
+                        else {
+                            nominatebutton.find("span").text(data.is_video ? "Nominate for video of the year" : "Nominate for profile of the year")
+                            nominatebutton.toggleClass("btn-danger btn-success")
+                        }
+                    },
+                    error: function () {
+                    },
+                })
+            })
+        })
+
+
+        $(document).ready(function () {
+            $(".like-button").click(function (e) {
+                e.preventDefault()
+
+                var likeButton = $(this)
+                var dislikeButton = likeButton.siblings(".dislike-button")
+                var url = likeButton.data("url")
+                var liked = likeButton.data("liked")
+
+                likeButton.find("i").toggleClass("bx bx-like bx bxs-like")
+                likeButton.data("liked", !liked)
+
+                dislikeButton.find("i").removeClass("bx bxs-dislike").addClass("bx bx-dislike")
+                dislikeButton.data("disliked", false)
+
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: {
+                        csrfmiddlewaretoken: "{{ csrf_token }}",
+                    },
+                    success: function (data) {
+                        dislikeButton.find("span").text(data.dislikes_count)
+                        likeButton.find("span").text(data.likes_count)
+                    },
+                    error: function () {
+                        likeButton.find("i").toggleClass("bx bxs-like bx bx-like")
+                        likeButton.data("liked", !liked)
+
+                        dislikeButton.find("i").removeClass("bx bx-dislike").addClass("bx bxs-dislike")
+                        dislikeButton.data("disliked", !disliked)
+                    },
+                })
+            })
+
+            $(".dislike-button").click(function (e) {
+                e.preventDefault()
+
+                var dislikeButton = $(this)
+                var likeButton = dislikeButton.siblings(".like-button")
+                var url = dislikeButton.data("url")
+                var disliked = dislikeButton.data("disliked")
+
+                dislikeButton.find("i").toggleClass("bx bx-dislike bx bxs-dislike")
+                dislikeButton.data("disliked", !disliked)
+
+                likeButton.find("i").removeClass("bx bxs-like").addClass("bx bx-like")
+                likeButton.data("liked", false)
+
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: {
+                        csrfmiddlewaretoken: "{{ csrf_token }}",
+                    },
+                    success: function (data) {
+                        dislikeButton.find("span").text(data.dislikes_count)
+                        likeButton.find("span").text(data.likes_count)
+                    },
+                    error: function () {
+                        dislikeButton.find("i").toggleClass("bx bxs-dislike bx bx-dislike")
+                        dislikeButton.data("disliked", !disliked)
+
+                        likeButton.find("i").removeClass("bx bx-like").addClass("bx bxs-like")
+                        likeButton.data("liked", !liked)
+                    },
+                })
+            })
+            $(".comment-like-button").click(function (e) {
+                e.preventDefault()
+
+                var likeButton = $(this)
+                var dislikeButton = likeButton.siblings(".comment-dislike-button")
+                var url = likeButton.data("url")
+                var liked = likeButton.data("liked")
+
+                likeButton.find("i").toggleClass("bx bx-like bx bxs-like")
+                likeButton.data("liked", !liked)
+
+                dislikeButton.find("i").removeClass("bx bxs-dislike").addClass("bx bx-dislike")
+                dislikeButton.data("disliked", false)
+
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: {
+                        csrfmiddlewaretoken: "{{ csrf_token }}",
+                    },
+                    success: function (data) {
+                        dislikeButton.find("span").text(data.dislikes_count)
+                        likeButton.find("span").text(data.likes_count)
+                    },
+                    error: function () {
+                        likeButton.find("i").toggleClass("bx bxs-like bx bx-like")
+                        likeButton.data("liked", !liked)
+
+                        dislikeButton.find("i").removeClass("bx bx-dislike").addClass("bx bx-dislike")
+                        dislikeButton.data("disliked", !disliked)
+                    },
+                })
+            })
+
+            $(".comment-dislike-button").click(function (e) {
+                e.preventDefault()
+
+                var dislikeButton = $(this)
+                var likeButton = dislikeButton.siblings(".comment-like-button")
+                var url = dislikeButton.data("url")
+                var disliked = dislikeButton.data("disliked")
+
+                dislikeButton.find("i").toggleClass("bx bx-dislike bx bxs-dislike")
+                dislikeButton.data("disliked", !disliked)
+
+                likeButton.find("i").removeClass("bx bxs-like").addClass("bx bx-like")
+                likeButton.data("liked", false)
+
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: {
+                        csrfmiddlewaretoken: "{{ csrf_token }}",
+                    },
+                    success: function (data) {
+                        dislikeButton.find("span").text(data.dislikes_count)
+                        likeButton.find("span").text(data.likes_count)
+                    },
+                    error: function () {
+                        dislikeButton.find("i").toggleClass("bx bxs-dislike bx bx-dislike")
+                        dislikeButton.data("disliked", !disliked)
+
+                        likeButton.find("i").removeClass("bx bx-like").addClass("bx bx-like")
+                        likeButton.data("liked", !liked)
+                    },
+                })
+            })
+            $(".follow-button").click(function (e) {
+                e.preventDefault()
+
+                var followButton = $(this)
+                var urlAdd = followButton.data("url-add")
+                var urlRemove = followButton.data("url-remove")
+
+                followButton.find("span").text(followButton.hasClass("following") ? "Follow" : "Following")
+                followButton.toggleClass("following").toggleClass("btn btn-outline-danger btn btn-outline-success")
+
+                $.ajax({
+                    type: "POST",
+                    url: followButton.hasClass("following") ? urlAdd : urlRemove,
+                    data: {
+                        csrfmiddlewaretoken: "{{ csrf_token }}",
+                    },
+                    success: function (data) {
+                        $(".follow-count").text(data.follow_count + " followers")
+                    },
+                    error: function () {
+                        followButton.find("span").text(followButton.hasClass("following") ? "Following" : "Follow")
+                        followButton.toggleClass("following").toggleClass("btn btn-outline-danger btn btn-outline-success")
+                    },
+                })
+            })
+        })
     </script>
-    <script src="https://vjs.zencdn.net/7.8.3/video.js"></script>
-  </body>
+</body>
+
 </html>

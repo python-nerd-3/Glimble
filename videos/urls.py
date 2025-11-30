@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CreateVideo, DetailVideo, UpdateVideo, DeleteVideo, AddLike, Dislike, DownloadVideo, Recommend, update_video_view_count, redirect_video, get_recommended_videos
+from .views import CreateVideo, DetailVideo, UpdateVideo, DeleteVideo, AddLike, Dislike, DownloadVideo, Recommend, Nominate, update_video_view_count, redirect_video, get_recommended_videos
 urlpatterns = [
     path('create/', CreateVideo.as_view(), name='video-create'),
     path('get-recommendations/<str:category>', get_recommended_videos),
@@ -11,5 +11,6 @@ urlpatterns = [
     path('<slug:id>/dislike', Dislike.as_view(), name='video-dislike'),
     path('<slug:id>/download', DownloadVideo.as_view(), name='video-download'),
     path('<slug:id>/recommend', Recommend.as_view(), name='video-recommend'),
+    path('<slug:id>/nominate', Nominate.as_view(), name='video-nominate'),
     path('<slug:id>/update-view-count/', update_video_view_count),
 ]

@@ -56,6 +56,9 @@
                 <h5>{{ profile.username }}</h5></a></p>
                 <p>{{ profile.followers.all.count }} Followers</p>
                 <p>{{ profile.rating|floatformat:1 }} Stars</p>
+                {% if request.user.id == 1 and sort_by == "NUMBNOMB" %}
+                <p>Nominations: {{ profile.noms.count }}</p>
+                {% endif %}
             </div>
         </div>
         {% endfor %}

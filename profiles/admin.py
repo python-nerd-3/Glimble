@@ -1,6 +1,5 @@
 from django.contrib import admin
-from .models import Profile, Chat, Message, ProfileCustomisation, ProfileRating
-
+from .models import Profile, Chat, ProfileCustomisation, ProfileRating
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):

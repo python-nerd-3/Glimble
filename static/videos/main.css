@@ -6,8 +6,15 @@
   transition: transform 0.25s ease-in-out;
 }
 
+.video-length {
+    transition: opacity 0.25s linear;
+}
+
 .card:hover {
   transform: scale(1.1);
+  .video-length {
+    opacity: 50%;
+  }
 }
 .image-home {
   height: 250px;
@@ -393,4 +400,18 @@ a.login:hover {
 }
 .shot img{
   width:100%;
+}
+
+.gay-text {
+    background: #FF0000;
+    background: linear-gradient(90deg,rgba(255, 0, 0, 1) 0%, rgba(0, 0, 255, 1) 50%, rgba(0, 255, 0, 1) 100%);
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+.🤑 {
+    background: #1e4a0d;
+    background: linear-gradient(90deg, rgba(30, 74, 13, 1) 0%, rgba(0, 255, 0, 1) 50%, rgba(30, 74, 13, 1) 100%);
+    -webkit-background-clip: text;
+    color: transparent;
 }

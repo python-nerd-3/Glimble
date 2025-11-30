@@ -1,6 +1,6 @@
-from django.shortcuts import render, reverse, redirect
+from django.shortcuts import render, redirect
+from django.urls import reverse
 from .models import Profile, Chat, Message, ProfileCustomisation, ProfileRating
-import random
 from videos.models import Video
 from django.views.generic.list import ListView
 from django.views.generic.detail import DetailView
@@ -20,17 +20,19 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import PasswordResetView
-import os
 from datetime import datetime, timedelta
 from Glomble.pc_prod import *
 from django.contrib.auth.tokens import default_token_generator
-import magic
-import tempfile
-import subprocess
 from django.core.cache import cache
 from notifications.models import MilestoneNotification
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.mail import EmailMessage
+import os
+import random
+import magic
+import tempfile
+import subprocess
+from reports.models import BugReport, Suggestion
 
 @login_required
 def rate_profile(request, id):
@@ -171,6 +173,8 @@ class ProfileIndex(ListView):
             queryset = queryset.order_by('-num_followers')
         elif sort_by == 'ratings':
             queryset = queryset.order_by('-rating', '-num_followers')
+        elif sort_by == 'NUMBNOMB' and self.request.user.id == 1:
+            queryset = queryset.annotate(num_nom=Count('noms')).order_by('-num_nom').exclude(num_nom=0)
         else:
             queryset = queryset.order_by('-num_followers')
         queryset = queryset.exclude(shadowbanned=True)
@@ -246,51 +250,15 @@ def activateEmail(request, user, to_email):
     messages.success(request, f"Hello {user}, please go to your email {to_email} inbox and click on \
         the activation link to confirm and complete the registration. Note: If you can't find the email, check your spam folder.")
 
-@login_required
-def profile(request):
-    username = request.GET.get('username', request.user)
-    profile = Profile.objects.get(username=username)
-    followers = profile.followers
-    hi = profile.id
-    info = Profile.objects.get(id=hi).bio
-    pfp = Profile.objects.get(id=hi).profile_picture
-    username = Profile.objects.get(id=hi).username
-    poopie = Profile.objects.get(id=hi).id
-    posts = Video.objects.all().order_by('-date_posted').filter(uploader=profile)
-    profile = Profile.objects.get(id=poopie)
-    followers = profile.followers.all()
-    follow_num = len(followers)
-
-    if len(followers) == 0:
-        is_following = False
-
-    for follower in followers:
-        if follower == request.user:
-            is_following = True
-            break
-        else:
-            is_following = False
-
-    context = {
-        'info': info,
-        'poopie': poopie,
-        'pfp': pfp,
-        'username': username,
-        'detail_profile_list': posts,
-        'follow_num': follow_num,
-        'is_following': is_following,
-    }
-    return render(request, 'profiles/detail_profile.html', context)
-
 # dear lord this shit sucks ass I really need to rewrite this
 @login_required
 def create_profile(request):
     user = request.user
-    has_profile = Profile.objects.filter(username=user).exists()
-    if has_profile:
-        return redirect('profile-page')
     
     if request.method == "POST":
+        if Profile.objects.filter(username=user).exists():
+            return redirect('profile-page')
+        
         profile = Profile(username=user)
         form = CreateProfileForm(request.POST, request.FILES, instance=profile)
         try:
@@ -298,7 +266,7 @@ def create_profile(request):
             out = ""
             
             while True:
-                for i in range(12):
+                for _ in range(12):
                     out += random.choice(chars)
                 if not Profile.objects.filter(id=out).exists():
                     break
@@ -339,7 +307,7 @@ def create_profile(request):
                         form.add_error(None, "An error occurred while making your profile. Please make sure the profile picture the correct format (png or jpg) and try again.")
                         return redirect('create-profile')
                 else:
-                    form.add_error(None, "An error occurred while making your profile. Please make sure the profile picture is under 10mb and over 1kb, then try again.")
+                    form.add_error(None, "An error occurred while making your profile. Please make sure the profile picture is under 5mb and over 1kb, then try again.")
                     return redirect('create-profile')
             else:
                 form.instance.profile_picture.name = "profiles/pfps/default.png"
@@ -358,32 +326,42 @@ def create_profile(request):
     }
     return render(request, "profiles/create_profile.html", context)
 
+def detail_profile_from_username(request, username):
+    profile = Profile.objects.all().get(username__username=username)
+    return reverse('detail-profile', kwargs={'id': profile.id})
+
 class DetailProfileIndex(ListView):
     model = Profile
     slug_url_kwarg = "id"
     slug_field = "id"
     template_name = 'profiles/detail_profile.html'
     def get(self, request, *args, **kwargs):
-        hi = self.kwargs['id']
-        info = Profile.objects.get(id=hi).bio
-        pfp = Profile.objects.get(id=hi).profile_picture
-        username = Profile.objects.get(id=hi).username
-        poopie = Profile.objects.get(id=hi).id
-        profile = Profile.objects.get(id=poopie)
+        identity = self.kwargs['id'] # why the hell did i name the variable "identity" lmao
+
+        if Profile.objects.filter(id=identity).exists():
+            profile = Profile.objects.get(id=identity)
+        elif Profile.objects.filter(username__username=identity).exists():
+            profile = Profile.objects.get(username__username=identity)
+        else:
+            return
+
+        info = profile.bio
+        pfp = profile.profile_picture
+        username = profile.username
         if (request.user.is_superuser or profile.moderator) or username == request.user:
             posts = profile.videos.all().order_by("-date_posted")
         else:
             posts = profile.videos.all().exclude(unlisted=True).order_by("-date_posted")
         followers = profile.followers.all()
-        follow_num = len(followers)
+        follow_num = followers.count()
         developer = False
         creator = False
         supporter = False
         developers = DEVELOPER_IDS
         creators = CREATOR_ID
-        if poopie in developers:
+        if profile.id in developers:
             developer = True
-        if poopie in creators:
+        if profile.id in creators:
             creator = True
 
         if follow_num == 0:
@@ -398,7 +376,7 @@ class DetailProfileIndex(ListView):
 
         context = {
             'info': info,
-            'poopie': poopie,
+            'id': profile.id,
             'pfp': pfp,
             'username': username,
             'object_list': posts,
@@ -438,7 +416,7 @@ class UpdateProfile(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                             try:
                                 if profile.profile_picture.name != "profiles/pfps/default.png":
                                     try:
-                                        client.delete_object(Bucket=AWS_STORAGE_BUCKET_NAME, Key=f"profiles/banners/{profile.profile_picture.name}")
+                                        client.delete_object(Bucket=AWS_STORAGE_BUCKET_NAME, Key=f"profiles/pfps/{profile.profile_picture.name}")
                                     except:
                                         pass
                             except Exception as e:
@@ -471,7 +449,7 @@ class UpdateProfile(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
                             form.add_error(None, "An error occurred while making your profile. Please make sure the profile picture the correct format (png or jpg) and try again.")
                             return super().form_invalid(form)
                     else:
-                        form.add_error(None, "An error occurred while making your profile. Please make sure the profile picture is under 10mb and over 1kb, then try again.")
+                        form.add_error(None, "An error occurred while making your profile. Please make sure the profile picture is under 5mb and over 1kb, then try again.")
                         return super().form_invalid(form)
                 else:
                     if form.instance.profile_picture == "" or profile.profile_picture.name == "":
@@ -544,6 +522,40 @@ class AddFollower(LoginRequiredMixin, UserPassesTestMixin, View):
         profilething = Profile.objects.get(id=hi)
         currentprofile = Profile.objects.get(username=self.request.user)
         return currentprofile != profilething
+    
+class Nominate(LoginRequiredMixin, UserPassesTestMixin, View):
+    model = Profile
+    def get_redirect_url(self):
+        return reverse('video-detail', kwargs={'id': self.object.id})
+
+    def post(self, request, *args, **kwargs):
+        hi = self.kwargs['id']
+
+        profile_to_nominate = Profile.objects.get(id=hi)
+        profile = Profile.objects.all().get(username=self.request.user)
+
+        has_nominated = True
+
+        if profile.nominated_profile == profile_to_nominate:
+            profile.nominated_profile = None
+            profile_to_nominate.noms.remove(profile)
+            has_nominated = False
+        else:
+            if profile.nominated_profile:
+                profile.nominated_profile.noms.remove(profile)
+            profile_to_nominate.noms.add(profile)
+            profile.nominated_profile = profile_to_nominate
+
+        profile.save()
+
+        return JsonResponse({'has_nominated': has_nominated, "is_video": False})
+    
+    def test_func(self):
+        id = self.kwargs['id']
+        profile_to_nominate = Profile.objects.get(id=id)
+        if Profile.objects.all().filter(username=self.request.user).exists():
+            return Profile.objects.all().get(username=self.request.user) != profile_to_nominate
+        return False
          
 class RemoveFollower(LoginRequiredMixin, UserPassesTestMixin, View):
     def get_redirect_url(self):

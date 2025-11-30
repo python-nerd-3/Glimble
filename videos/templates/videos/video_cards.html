@@ -52,16 +52,19 @@
             <img src="https://media.glomble.com/{{ object.thumbnail }}" 
                 class="position-absolute w-100 h-100" 
                 style="top:0;left:0;object-fit: contain;">
-            <div class="text-center length-{{object.id}}" style="position: absolute; bottom: 8px; right: 16px; min-width: 50px;">{% duration_to_hms object.duration %}</div>
+            <div class="text-center length-{{object.id}} video-length" style="position: absolute; bottom: 8px; right: 16px; min-width: 50px;">{% duration_to_hms object.duration %}</div>
         </div>
     </a>
     <div style="height: 220px" class="card-body div-{{object.id}}">
-        <a class="link-text a-{{object.id}}" href="{% url 'video-detail' object.id %}"><h6 class="text-center shit">{{ object.title }}</h6></a>
-        <a class="link-text a-{{object.id}}" href="{% url 'detail-profile' object.uploader.id %}"><h6 class="text-center shit"><img class="rounded-circle" width="35" height="35" src="https://media.glomble.com/{{ object.uploader.profile_picture }}">{{ object.uploader.username }}</h6></a>
+        <h6 class="text-center shit" title="{{ object.title }}"><a class="link-text a-{{object.id}}" href="{% url 'video-detail' object.id %}">{{ object.title }} {% if object.unlisted %}<i class='bx bx-ghost' title="Unlisted"></i>{% endif %}</a></h6>
+        <h6 class="text-center shit"><a class="link-text a-{{object.id}}" href="{% url 'detail-profile' object.uploader.id %}"><img class="rounded-circle" width="35" height="35" src="https://media.glomble.com/{{ object.uploader.profile_picture }}">{{ object.uploader.username }}</a></h6>
         <h6 class="text-center">Views: {{ object.views.count }}</h6>
         <h6 class="text-center">Score: {{ object.score }}</h6>
-        <h6 class="text-center">{{ object.date_posted|naturaltime }}</h6>
+        <h6 class="text-center" title="{{ object.date_posted }} (UTC)">{{ object.date_posted|naturaltime }}</h6>
         <h6 class="text-center">{{ object.likes.all.count }} likes, {{ object.dislikes.all.count }} dislikes</h6>
+        {% if request.user.id == 1 and sort_by == "NUMNOM" %}
+        <h6 class="text-center">Nominations: {{ object.nominations.count }}</h6>
+        {% endif %}
     </div>
 </div>
 {% endfor %}
